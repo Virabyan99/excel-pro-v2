@@ -1,6 +1,6 @@
 "use client";
 // app/page.tsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -9,26 +9,31 @@ import {
 } from '@tanstack/react-table';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 
+type CellMap = Record<string, string>;
 
 export default function Home() {
+  const [cells, setCells] = useState<CellMap>({});
+  const maxRows = 12;
+  const maxCols = 12;
+
   // Define 12 columns labeled A–L
   const columns = useMemo<ColumnDef<Record<string, string>>[]>(() =>
-    Array.from({ length: 12 }, (_, i) => ({
+    Array.from({ length: maxCols }, (_, i) => ({
       accessorKey: `col${i}`,
       header: String.fromCharCode(65 + i),
-      cell: () => '',
+      cell: () => null,
     })),
-  []);
+  [maxCols]);
 
   // Generate 12 rows of empty strings
   const data = useMemo(
     () =>
-      Array.from({ length: 12 }, () =>
+      Array.from({ length: maxRows }, () =>
         Object.fromEntries(
-          Array.from({ length: 12 }, (_, i) => [`col${i}`, '']),
-        ),
+          Array.from({ length: maxCols }, (_, i) => [`col${i}`, ''])
+        )
       ),
-    [],
+    [maxRows, maxCols]
   );
 
   const table = useReactTable({
@@ -36,6 +41,19 @@ export default function Home() {
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
+
+  const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
+    const key = `${rowIndex},${colIndex}`;
+    setCells((prev) => {
+      const next = { ...prev };
+      if (value.trim() === '') {
+        delete next[key];
+      } else {
+        next[key] = value;
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="h-screen w-screen overflow-auto p-4">
@@ -45,10 +63,7 @@ export default function Home() {
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
                 <TableCell key={header.id}>
-                  {flexRender(
-                    header.column.columnDef.header,
-                    header.getContext(),
-                  )}
+                  {flexRender(header.column.columnDef.header, header.getContext())}
                 </TableCell>
               ))}
             </TableRow>
@@ -57,11 +72,22 @@ export default function Home() {
         <TableBody>
           {table.getRowModel().rows.map((row) => (
             <TableRow key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
+              {row.getVisibleCells().map((cell) => {
+                const rowIndex = row.index;
+                const colIndex = Number(cell.column.id.replace('col', ''));
+                const cellKey = `${rowIndex},${colIndex}`;
+                const value = cells[cellKey] || '';
+                return (
+                  <TableCell key={cell.id}>
+                    <input
+                      type="text"
+                      className="w-full h-full bg-transparent outline-none"
+                      value={value}
+                      onChange={(e) => handleCellChange(rowIndex, colIndex, e.target.value)}
+                    />
+                  </TableCell>
+                );
+              })}
             </TableRow>
           ))}
         </TableBody>
