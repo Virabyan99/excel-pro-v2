@@ -7,12 +7,14 @@ type CellMap = Record<string, string>;
 
 export default function Home() {
   const [cells, setCells] = useState<CellMap>({});
+  const [maxRows, setMaxRows] = useState(17); // Dynamic rows
+  const [maxCols, setMaxCols] = useState(10); // Dynamic columns
   const parentRef = useRef<HTMLDivElement>(null);
-  const maxRows = 100;
-  const maxCols = 100;
 
   const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
     const key = `${rowIndex},${colIndex}`;
+
+    // Update cell content
     setCells((prev) => {
       const next = { ...prev };
       if (value.trim() === '') {
@@ -22,12 +24,18 @@ export default function Home() {
       }
       return next;
     });
+
+    // Expand rows if editing within 2 rows of the bottom
+    setMaxRows((prev) => (rowIndex >= prev - 2 ? prev + 10 : prev));
+
+    // Expand columns if editing within 2 columns of the right
+    setMaxCols((prev) => (colIndex >= prev - 2 ? prev + 10 : prev));
   };
 
   const rowVirtualizer = useVirtualizer({
     count: maxRows,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 35,
+    estimateSize: () => 34,
     overscan: 5,
   });
 
@@ -35,12 +43,12 @@ export default function Home() {
     horizontal: true,
     count: maxCols,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 120,
+    estimateSize: () => 126,
     overscan: 5,
   });
 
   return (
-    <div ref={parentRef} className="h-screen w-screen overflow-auto relative">
+    <div ref={parentRef} className="h-screen w-screen  overflow-auto relative">
       <div
         style={{
           width: columnVirtualizer.getTotalSize(),
