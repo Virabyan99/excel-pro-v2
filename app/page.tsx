@@ -5,6 +5,13 @@ import Papa from 'papaparse';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { evaluate } from 'mathjs';
+import dynamic from "next/dynamic";
+
+// Dynamically import ChartModal to ensure client-side rendering only
+const ChartModal = dynamic(
+  () => import("@/components/ChartModal").then((mod) => mod.ChartModal),
+  { ssr: false }
+);
 
 type CellMap = Record<string, string>;
 
@@ -16,7 +23,8 @@ export default function Home() {
   const [focusedCell, setFocusedCell] = useState<{ row: number; col: number } | null>(null);
   const [selectionStart, setSelectionStart] = useState<{ row: number; col: number } | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<{ row: number; col: number } | null>(null);
-  const [isSelecting, setIsSelecting] = useState(false); // Track active selection
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [isChartOpen, setIsChartOpen] = useState(false); // State for chart modal visibility
   const parentRef = useRef<HTMLDivElement>(null);
   const isUpdating = useRef(false);
 
@@ -207,6 +215,24 @@ export default function Home() {
       <div className="absolute top-2 right-2 z-10">
         <Button onClick={exportToCSV}>Export CSV</Button>
       </div>
+      {/* Visualize Button */}
+      {selectionStart && selectionEnd && (
+        <button
+          onClick={() => setIsChartOpen(true)}
+          className="absolute bottom-4 right-4 z-10 px-3 py-1 bg-blue-600 text-white rounded"
+        >
+          Visualize
+        </button>
+      )}
+      {/* Chart Modal */}
+      {isChartOpen && (
+        <ChartModal
+          rowLabels={getSelectedData().rowLabels}
+          colLabels={getSelectedData().colLabels}
+          data={getSelectedData().data}
+          onClose={() => setIsChartOpen(false)}
+        />
+      )}
       <div
         className="absolute top-0 left-[126px] right-0 h-[34px] bg-gray-100"
         style={{ pointerEvents: 'none' }}
@@ -284,15 +310,15 @@ export default function Home() {
                   onMouseDown={() => {
                     setSelectionStart({ row: rowIndex, col: colIndex });
                     setSelectionEnd({ row: rowIndex, col: colIndex });
-                    setIsSelecting(true); // Start selection
+                    setIsSelecting(true);
                   }}
                   onMouseOver={() => {
-                    if (isSelecting) { // Only update if actively selecting
+                    if (isSelecting) {
                       setSelectionEnd({ row: rowIndex, col: colIndex });
                     }
                   }}
                   onMouseUp={() => {
-                    setIsSelecting(false); // Stop selection
+                    setIsSelecting(false);
                   }}
                 >
                   <input
