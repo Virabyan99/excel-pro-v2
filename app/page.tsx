@@ -201,9 +201,10 @@ export default function Home() {
     return { rowLabels, colLabels, data };
   }
 
-  return (
-    <div className="relative h-screen w-screen overflow-hidden">
-      <Header onImport={handleImportCSV} onExport={exportToCSV} />
+return (
+  <div className="flex flex-col h-screen w-screen overflow-hidden">
+    <Header onImport={handleImportCSV} onExport={exportToCSV} />
+    <div className="flex-1 relative mt-13 overflow-hidden">
       {selectionStart && selectionEnd && (
         <button
           onClick={() => setIsChartOpen(true)}
@@ -342,5 +343,6 @@ export default function Home() {
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }

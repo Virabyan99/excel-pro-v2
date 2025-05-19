@@ -11,8 +11,11 @@
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "^2.1.14",
     "@radix-ui/react-slot": "^1.2.2",
+    "@radix-ui/react-tabs": "^1.1.11",
+    "@radix-ui/react-tooltip": "^1.2.6",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.8",
+    "chroma-js": "^3.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
@@ -27,6 +30,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/chroma-js": "^3.1.1",
     "@types/node": "^20",
     "@types/papaparse": "^5.3.16",
     "@types/react": "^19",
