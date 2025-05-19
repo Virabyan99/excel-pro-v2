@@ -14,11 +14,23 @@ export default function Home() {
   const [maxRows, setMaxRows] = useState(22);
   const [maxCols, setMaxCols] = useState(14);
   const [focusedCell, setFocusedCell] = useState<{ row: number; col: number } | null>(null);
+  const [selectionStart, setSelectionStart] = useState<{ row: number; col: number } | null>(null);
+  const [selectionEnd, setSelectionEnd] = useState<{ row: number; col: number } | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false); // Track active selection
   const parentRef = useRef<HTMLDivElement>(null);
   const isUpdating = useRef(false);
 
   const HEADER_HEIGHT = 34;
   const ROW_HEADER_WIDTH = 126;
+
+  // Global mouse up handler to stop selection
+  useEffect(() => {
+    const handleMouseUp = () => {
+      setIsSelecting(false);
+    };
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => document.removeEventListener('mouseup', handleMouseUp);
+  }, []);
 
   const handleCellChange = (rowIndex: number, colIndex: number, rawValue: string) => {
     const key = `${rowIndex},${colIndex}`;
@@ -161,6 +173,28 @@ export default function Home() {
     e.target.value = '';
   };
 
+  function getSelectedData() {
+    if (!selectionStart || !selectionEnd) return { rowLabels: [], colLabels: [], data: [] };
+
+    const rowMin = Math.min(selectionStart.row, selectionEnd.row);
+    const rowMax = Math.max(selectionStart.row, selectionEnd.row);
+    const colMin = Math.min(selectionStart.col, selectionEnd.col);
+    const colMax = Math.max(selectionStart.col, selectionEnd.col);
+
+    const rowLabels = Array.from({ length: rowMax - rowMin + 1 }, (_, i) => String(rowMin + i + 1));
+    const colLabels = Array.from({ length: colMax - colMin + 1 }, (_, j) => String.fromCharCode(65 + colMin + j));
+    const data = rowLabels.map((_, i) =>
+      colLabels.map((_, j) => {
+        const key = `${rowMin + i},${colMin + j}`;
+        const raw = cells[key] || '';
+        const num = parseFloat(raw);
+        return isNaN(num) ? 0 : num;
+      })
+    );
+
+    return { rowLabels, colLabels, data };
+  }
+
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       <div className="absolute top-2 left-2 z-10">
@@ -238,27 +272,76 @@ export default function Home() {
               const value = cells[key] || '';
               const isFocused = focusedCell?.row === rowIndex && focusedCell.col === colIndex;
               return (
-                <input
+                <div
                   key={key}
-                  type="text"
-                  className={`absolute bg-transparent outline-none border border-gray-200 ${
-                    isFocused ? 'border-2 border-blue-500' : ''
-                  }`}
                   style={{
                     top: rv.start,
                     left: cv.start,
                     width: cv.size,
                     height: rv.size,
-                    boxSizing: 'border-box',
+                    position: 'absolute',
                   }}
-                  value={value}
-                  onFocus={() => setFocusedCell({ row: rowIndex, col: colIndex })}
-                  onBlur={() => setFocusedCell(null)}
-                  onChange={(e) => handleCellChange(rowIndex, colIndex, e.target.value)}
-                />
+                  onMouseDown={() => {
+                    setSelectionStart({ row: rowIndex, col: colIndex });
+                    setSelectionEnd({ row: rowIndex, col: colIndex });
+                    setIsSelecting(true); // Start selection
+                  }}
+                  onMouseOver={() => {
+                    if (isSelecting) { // Only update if actively selecting
+                      setSelectionEnd({ row: rowIndex, col: colIndex });
+                    }
+                  }}
+                  onMouseUp={() => {
+                    setIsSelecting(false); // Stop selection
+                  }}
+                >
+                  <input
+                    type="text"
+                    className={`absolute bg-transparent outline-none border border-gray-200 ${
+                      isFocused ? 'border-2 border-blue-500' : ''
+                    }`}
+                    style={{
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      boxSizing: 'border-box',
+                    }}
+                    value={value}
+                    onFocus={() => setFocusedCell({ row: rowIndex, col: colIndex })}
+                    onBlur={() => setFocusedCell(null)}
+                    onChange={(e) => handleCellChange(rowIndex, colIndex, e.target.value)}
+                  />
+                </div>
               );
             })
           )}
+          {selectionStart && selectionEnd && (() => {
+            const rowMin = Math.min(selectionStart.row, selectionEnd.row);
+            const rowMax = Math.max(selectionStart.row, selectionEnd.row);
+            const colMin = Math.min(selectionStart.col, selectionEnd.col);
+            const colMax = Math.max(selectionStart.col, selectionEnd.col);
+            return rowVirtualizer.getVirtualItems().flatMap(rv =>
+              columnVirtualizer.getVirtualItems().map(cv => {
+                const r = rv.index, c = cv.index;
+                if (r >= rowMin && r <= rowMax && c >= colMin && c <= colMax) {
+                  return (
+                    <div
+                      key={`sel-${r},${c}`}
+                      className="absolute bg-blue-200 bg-opacity-40 pointer-events-none"
+                      style={{
+                        top: rv.start,
+                        left: cv.start,
+                        width: cv.size,
+                        height: rv.size,
+                      }}
+                    />
+                  );
+                }
+                return null;
+              })
+            );
+          })()}
         </div>
       </div>
     </div>
