@@ -18,7 +18,7 @@ import {
 import { ChartContainer, ChartTooltipContent } from "./ui/chart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Download } from 'lucide-react';
+import { Download, X } from 'lucide-react';
 import chroma from 'chroma-js';
 
 interface ChartModalProps {
@@ -149,14 +149,14 @@ export function ChartModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="relative bg-white rounded shadow-lg w-3/4 h-3/4 p-4">
+      <div className="relative bg-white rounded  shadow-lg w-3/4 h-3/4 p-4">
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 text-gray-600 hover:text-gray-800"
+          className="absolute top-1 right-2 text-gray-600 hover:text-gray-800"
         >
-          Close
+          <X className="h-4 w-4" />
         </button>
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between mt-2 items-center mb-4">
           <h2 className="text-xl font-bold">Chart Visualization</h2>
           <div className="flex gap-2">
             <Tabs defaultValue="bar" onValueChange={setChartType}>
