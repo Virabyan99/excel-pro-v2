@@ -3,11 +3,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import Papa from 'papaparse';
 import { z } from 'zod';
-import { Button } from '@/components/ui/button';
 import { evaluate } from 'mathjs';
 import dynamic from "next/dynamic";
+import { Header } from '@/components/Header';
 
-// Dynamically import ChartModal to ensure client-side rendering only
 const ChartModal = dynamic(
   () => import("@/components/ChartModal").then((mod) => mod.ChartModal),
   { ssr: false }
@@ -24,14 +23,13 @@ export default function Home() {
   const [selectionStart, setSelectionStart] = useState<{ row: number; col: number } | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<{ row: number; col: number } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
-  const [isChartOpen, setIsChartOpen] = useState(false); // State for chart modal visibility
+  const [isChartOpen, setIsChartOpen] = useState(false);
   const parentRef = useRef<HTMLDivElement>(null);
   const isUpdating = useRef(false);
 
   const HEADER_HEIGHT = 34;
   const ROW_HEADER_WIDTH = 126;
 
-  // Global mouse up handler to stop selection
   useEffect(() => {
     const handleMouseUp = () => {
       setIsSelecting(false);
@@ -205,17 +203,7 @@ export default function Home() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden">
-      <div className="absolute top-2 left-2 z-10">
-        <input
-          type="file"
-          accept=".csv"
-          onChange={handleImportCSV}
-        />
-      </div>
-      <div className="absolute top-2 right-2 z-10">
-        <Button onClick={exportToCSV}>Export CSV</Button>
-      </div>
-      {/* Visualize Button */}
+      <Header onImport={handleImportCSV} onExport={exportToCSV} />
       {selectionStart && selectionEnd && (
         <button
           onClick={() => setIsChartOpen(true)}
@@ -224,7 +212,6 @@ export default function Home() {
           Visualize
         </button>
       )}
-      {/* Chart Modal */}
       {isChartOpen && (
         <ChartModal
           rowLabels={getSelectedData().rowLabels}
@@ -297,15 +284,24 @@ export default function Home() {
               const key = `${rowIndex},${colIndex}`;
               const value = cells[key] || '';
               const isFocused = focusedCell?.row === rowIndex && focusedCell.col === colIndex;
+              const isSelected = selectionStart && selectionEnd &&
+                rowIndex >= Math.min(selectionStart.row, selectionEnd.row) &&
+                rowIndex <= Math.max(selectionStart.row, selectionEnd.row) &&
+                colIndex >= Math.min(selectionStart.col, selectionEnd.col) &&
+                colIndex <= Math.max(selectionStart.col, selectionEnd.col);
               return (
                 <div
                   key={key}
+                  className={`
+                    absolute
+                    ${isSelected ? 'bg-blue-100' : ''}
+                    ${isSelected && isFocused ? 'bg-white' : ''}
+                  `}
                   style={{
                     top: rv.start,
                     left: cv.start,
                     width: cv.size,
                     height: rv.size,
-                    position: 'absolute',
                   }}
                   onMouseDown={() => {
                     setSelectionStart({ row: rowIndex, col: colIndex });
@@ -323,9 +319,10 @@ export default function Home() {
                 >
                   <input
                     type="text"
-                    className={`absolute bg-transparent outline-none border border-gray-200 ${
-                      isFocused ? 'border-2 border-blue-500' : ''
-                    }`}
+                    className={`
+                      absolute bg-transparent outline-none
+                      ${isFocused ? 'border-2 border-blue-500' : 'border border-gray-200'}
+                    `}
                     style={{
                       top: 0,
                       left: 0,
@@ -342,32 +339,6 @@ export default function Home() {
               );
             })
           )}
-          {selectionStart && selectionEnd && (() => {
-            const rowMin = Math.min(selectionStart.row, selectionEnd.row);
-            const rowMax = Math.max(selectionStart.row, selectionEnd.row);
-            const colMin = Math.min(selectionStart.col, selectionEnd.col);
-            const colMax = Math.max(selectionStart.col, selectionEnd.col);
-            return rowVirtualizer.getVirtualItems().flatMap(rv =>
-              columnVirtualizer.getVirtualItems().map(cv => {
-                const r = rv.index, c = cv.index;
-                if (r >= rowMin && r <= rowMax && c >= colMin && c <= colMax) {
-                  return (
-                    <div
-                      key={`sel-${r},${c}`}
-                      className="absolute bg-blue-200 bg-opacity-40 pointer-events-none"
-                      style={{
-                        top: rv.start,
-                        left: cv.start,
-                        width: cv.size,
-                        height: rv.size,
-                      }}
-                    />
-                  );
-                }
-                return null;
-              })
-            );
-          })()}
         </div>
       </div>
     </div>
