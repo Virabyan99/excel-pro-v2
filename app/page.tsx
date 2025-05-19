@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import Papa from 'papaparse';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
+import { evaluate } from 'mathjs'; // Import Math.js for formula evaluation
 
 type CellMap = Record<string, string>;
 
@@ -19,15 +20,31 @@ export default function Home() {
 
   const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
     const key = `${rowIndex},${colIndex}`;
+    let newValue = value;
+
+    // Handle formulas starting with '='
+    if (value.startsWith('=')) {
+      try {
+        const expr = value.slice(1); // Remove the '='
+        const result = evaluate(expr); // Evaluate the expression
+        newValue = String(result); // Convert result to string
+      } catch {
+        newValue = '#ERROR'; // Set error on invalid expression
+      }
+    }
+
+    // Update cells state, maintaining sparsity
     setCells((prev) => {
       const next = { ...prev };
-      if (value.trim() === '') {
+      if (newValue.trim() === '') {
         delete next[key];
       } else {
-        next[key] = value;
+        next[key] = newValue;
       }
       return next;
     });
+
+    // Auto-expansion logic
     setMaxRows((prev) => (rowIndex >= prev - 2 ? prev + 10 : prev));
     setMaxCols((prev) => (colIndex >= prev - 2 ? prev + 10 : prev));
   };
