@@ -1,6 +1,9 @@
 "use client";
 import React, { useState, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import Papa from 'papaparse';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
 
 type CellMap = Record<string, string>;
 
@@ -16,8 +19,6 @@ export default function Home() {
 
   const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
     const key = `${rowIndex},${colIndex}`;
-
-    // Update cell content
     setCells((prev) => {
       const next = { ...prev };
       if (value.trim() === '') {
@@ -27,11 +28,7 @@ export default function Home() {
       }
       return next;
     });
-
-    // Expand rows if editing within 2 rows of the bottom
     setMaxRows((prev) => (rowIndex >= prev - 2 ? prev + 10 : prev));
-
-    // Expand columns if editing within 2 columns of the right
     setMaxCols((prev) => (colIndex >= prev - 2 ? prev + 10 : prev));
   };
 
@@ -50,8 +47,74 @@ export default function Home() {
     overscan: 5,
   });
 
+  const exportToCSV = () => {
+    const data = Array.from({ length: maxRows }, (_, row) =>
+      Array.from({ length: maxCols }, (_, col) =>
+        cells[`${row},${col}`] || ''
+      )
+    );
+    const csv = Papa.unparse(data);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'sheet.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse<string[]>(file, {
+      complete: (results) => {
+        try {
+          const raw = results.data as string[][];
+          const sheet = z.array(z.array(z.string())).parse(raw);
+
+          const cols = sheet[0]?.length ?? 0;
+          const newCells: CellMap = {};
+          sheet.forEach((row, rowIndex) => {
+            row.forEach((cell, colIndex) => {
+              z.string().parse(cell);
+              if (cell.trim() !== '') {
+                newCells[`${rowIndex},${colIndex}`] = cell;
+              }
+            });
+          });
+
+          setCells(newCells);
+          setMaxRows(sheet.length + 2);
+          setMaxCols(cols + 2);
+        } catch (err: any) {
+          alert(`Import failed: ${err.message}`);
+        }
+      },
+      error: (err) => {
+        alert(`Parsing error: ${err.message}`);
+      },
+    });
+
+    e.target.value = '';
+  };
+
   return (
     <div className="relative h-screen w-screen overflow-hidden">
+      {/* CSV Import */}
+      <div className="absolute top-2 left-2 z-10">
+        <input
+          type="file"
+          accept=".csv"
+          onChange={handleImportCSV}
+        />
+      </div>
+
+      {/* Export Button */}
+      <div className="absolute top-2 right-2 z-10">
+        <Button onClick={exportToCSV}>Export CSV</Button>
+      </div>
+
       {/* Column Headers */}
       <div
         className="absolute top-0 left-[126px] right-0 h-[34px] bg-gray-100"
