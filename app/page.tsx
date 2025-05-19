@@ -321,7 +321,7 @@ export default function Home() {
                     type="text"
                     className={`
                       absolute bg-transparent outline-none
-                      ${isFocused ? 'border-2 border-blue-500' : 'border border-gray-200'}
+                      ${isFocused ? 'border-2 border-blue-500' : 'border border-gray-300'}
                     `}
                     style={{
                       top: 0,
