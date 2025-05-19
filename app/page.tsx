@@ -1,53 +1,98 @@
 "use client";
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import Papa from 'papaparse';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
-import { evaluate } from 'mathjs'; // Import Math.js for formula evaluation
+import { evaluate } from 'mathjs';
 
 type CellMap = Record<string, string>;
 
 export default function Home() {
   const [cells, setCells] = useState<CellMap>({});
-  const [maxRows, setMaxRows] = useState(22); // Dynamic rows
-  const [maxCols, setMaxCols] = useState(14); // Dynamic columns
+  const [formulas, setFormulas] = useState<Record<string, string>>({});
+  const [maxRows, setMaxRows] = useState(22);
+  const [maxCols, setMaxCols] = useState(14);
   const [focusedCell, setFocusedCell] = useState<{ row: number; col: number } | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
+  const isUpdating = useRef(false);
 
-  const HEADER_HEIGHT = 34; // Matches row height estimate
-  const ROW_HEADER_WIDTH = 126; // Matches column width estimate
+  const HEADER_HEIGHT = 34;
+  const ROW_HEADER_WIDTH = 126;
 
-  const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
+  const handleCellChange = (rowIndex: number, colIndex: number, rawValue: string) => {
     const key = `${rowIndex},${colIndex}`;
-    let newValue = value;
 
-    // Handle formulas starting with '='
-    if (value.startsWith('=')) {
-      try {
-        const expr = value.slice(1); // Remove the '='
-        const result = evaluate(expr); // Evaluate the expression
-        newValue = String(result); // Convert result to string
-      } catch {
-        newValue = '#ERROR'; // Set error on invalid expression
-      }
+    if (rawValue.startsWith('=')) {
+      setFormulas(prev => ({ ...prev, [key]: rawValue }));
+      setCells(prev => ({ ...prev, [key]: rawValue }));
+    } else {
+      setFormulas(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      setCells(prev => {
+        const next = { ...prev };
+        if (rawValue.trim() === '') {
+          delete next[key];
+        } else {
+          next[key] = rawValue;
+        }
+        return next;
+      });
     }
 
-    // Update cells state, maintaining sparsity
-    setCells((prev) => {
-      const next = { ...prev };
-      if (newValue.trim() === '') {
-        delete next[key];
-      } else {
-        next[key] = newValue;
-      }
-      return next;
-    });
-
-    // Auto-expansion logic
-    setMaxRows((prev) => (rowIndex >= prev - 2 ? prev + 10 : prev));
-    setMaxCols((prev) => (colIndex >= prev - 2 ? prev + 10 : prev));
+    setMaxRows(prev => (rowIndex >= prev - 2 ? prev + 10 : prev));
+    setMaxCols(prev => (colIndex >= prev - 2 ? prev + 10 : prev));
   };
+
+  const calculateFormulas = (currentCells: CellMap, currentFormulas: Record<string, string>): CellMap => {
+    const newCells = { ...currentCells };
+    Object.entries(currentFormulas).forEach(([key, formula]) => {
+      const match = formula.match(/^=SUM\(([A-Z]+)(\d+):([A-Z]+)(\d+)\)$/i);
+      if (match) {
+        const [, startCol, startRow, endCol, endRow] = match;
+        const colStart = startCol.charCodeAt(0) - 65;
+        const rowStart = parseInt(startRow, 10) - 1;
+        const colEnd = endCol.charCodeAt(0) - 65;
+        const rowEnd = parseInt(endRow, 10) - 1;
+
+        let sum = 0;
+        for (let r = rowStart; r <= rowEnd; r++) {
+          for (let c = colStart; c <= colEnd; c++) {
+            const cellKey = `${r},${c}`;
+            const raw = currentCells[cellKey];
+            const num = raw && !isNaN(Number(raw)) ? Number(raw) : 0;
+            sum += num;
+          }
+        }
+        newCells[key] = String(sum);
+      } else {
+        try {
+          const expr = formula.slice(1);
+          const result = evaluate(expr);
+          newCells[key] = String(result);
+        } catch {
+          newCells[key] = '#ERROR';
+        }
+      }
+    });
+    return newCells;
+  };
+
+  useEffect(() => {
+    if (isUpdating.current) {
+      isUpdating.current = false;
+      return;
+    }
+
+    const newCells = calculateFormulas(cells, formulas);
+    if (JSON.stringify(newCells) !== JSON.stringify(cells)) {
+      isUpdating.current = true;
+      setCells(newCells);
+    }
+  }, [cells, formulas]);
 
   const rowVirtualizer = useVirtualizer({
     count: maxRows,
@@ -118,7 +163,6 @@ export default function Home() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden">
-      {/* CSV Import */}
       <div className="absolute top-2 left-2 z-10">
         <input
           type="file"
@@ -126,13 +170,9 @@ export default function Home() {
           onChange={handleImportCSV}
         />
       </div>
-
-      {/* Export Button */}
       <div className="absolute top-2 right-2 z-10">
         <Button onClick={exportToCSV}>Export CSV</Button>
       </div>
-
-      {/* Column Headers */}
       <div
         className="absolute top-0 left-[126px] right-0 h-[34px] bg-gray-100"
         style={{ pointerEvents: 'none' }}
@@ -153,8 +193,6 @@ export default function Home() {
           </div>
         ))}
       </div>
-
-      {/* Row Headers */}
       <div
         className="absolute left-0 top-[34px] bottom-0 w-[126px] bg-gray-100"
         style={{ pointerEvents: 'none' }}
@@ -175,8 +213,6 @@ export default function Home() {
           </div>
         ))}
       </div>
-
-      {/* Scrollable Data Grid */}
       <div
         ref={parentRef}
         className="absolute overflow-auto"
