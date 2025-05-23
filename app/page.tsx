@@ -259,8 +259,16 @@ export default function Home() {
   const rowVirtualizer = useVirtualizer({
     count: items.length + 1,
     getScrollElement: () => parentRef.current,
-    estimateSize: (index) =>
-      index === 0 ? HEADER_HEIGHT : rowHeights[items[index - 1].rowIndex],
+    estimateSize: (index) => {
+      if (index === 0) {
+        return HEADER_HEIGHT; // Header row
+      }
+      const item = items[index - 1];
+      if (item.type === 'group') {
+        return 34; // Fixed height for group headers
+      }
+      return rowHeights[item.rowIndex] || 34; // Data row height with fallback
+    },
     overscan: 5,
   })
 
@@ -273,10 +281,10 @@ export default function Home() {
         setGroupingColumn={setGroupingColumn}
         groupingColumn={groupingColumn}
         applyFilter={applyFilter}
-        focusedCell={focusedCell} // Added
-        formulas={formulas} // Added
-        cells={cells} // Added
-        handleCellChange={handleCellChange} // Added
+        focusedCell={focusedCell}
+        formulas={formulas}
+        cells={cells}
+        handleCellChange={handleCellChange}
       />
       <div className="flex-1 relative mt-13 overflow-hidden">
         {selectionStart && selectionEnd && (
