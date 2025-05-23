@@ -6,7 +6,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { ThemeToggle } from './ThemeToggle'; // Import ThemeToggle
+import { ThemeToggle } from './ThemeToggle';
+import { FormulaBar } from './FormulaBar'; // Import the new FormulaBar component
 
 interface HeaderProps {
   onImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -15,17 +16,40 @@ interface HeaderProps {
   setGroupingColumn: (column: number | null) => void;
   groupingColumn: number | null;
   applyFilter: (column: number, value: string) => void;
+  focusedCell: { row: number; col: number } | null; // Added for FormulaBar
+  formulas: Record<string, string>; // Added for FormulaBar
+  cells: Record<string, string>; // Added for FormulaBar
+  handleCellChange: (rowIndex: number, colIndex: number, value: string) => void; // Added for FormulaBar
 }
 
-export function Header({ onImport, onExport, maxCols, setGroupingColumn, groupingColumn, applyFilter }: HeaderProps) {
+export function Header({
+  onImport,
+  onExport,
+  maxCols,
+  setGroupingColumn,
+  groupingColumn,
+  applyFilter,
+  focusedCell,
+  formulas,
+  cells,
+  handleCellChange,
+}: HeaderProps) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterColumnLocal, setFilterColumnLocal] = useState<number | null>(null);
   const [filterValueLocal, setFilterValueLocal] = useState('');
   const columns = Array.from({ length: maxCols }, (_, i) => String.fromCharCode(65 + i));
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-10 bg-white dark:bg-gray-800 shadow-md p-2 flex justify-between items-center">
-      <h1 className="text-xl font-bold text-gray-900 dark:text-white">Spreadsheet App</h1>
+    <div className="fixed top-0 left-0 right-0 z-10 bg-white dark:bg-gray-800 shadow-md p-2 flex items-center">
+      <h1 className="text-xl font-bold text-gray-900 dark:text-white mr-4">Spreadsheet App</h1>
+      <div className="flex-grow mr-4">
+        <FormulaBar
+          focusedCell={focusedCell}
+          formulas={formulas}
+          cells={cells}
+          handleCellChange={handleCellChange}
+        />
+      </div>
       <div className="flex gap-2 items-center">
         {/* Grouping Select */}
         <Select
@@ -124,7 +148,6 @@ export function Header({ onImport, onExport, maxCols, setGroupingColumn, groupin
             </Tooltip>
           </div>
         </TooltipProvider>
-        {/* Theme Toggle */}
         <ThemeToggle />
       </div>
     </div>
