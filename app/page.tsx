@@ -31,8 +31,12 @@ export default function Home() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
   const [filters, setFilters] = useState<Record<number, string>>({});
   const [groupingColumn, setGroupingColumn] = useState<number | null>(null);
+  const [columnWidths, setColumnWidths] = useState<number[]>(Array(15).fill(126));
+  const [rowHeights, setRowHeights] = useState<number[]>(Array(23).fill(34));
+  const [columnOrder, setColumnOrder] = useState<number[]>(Array.from({ length: 15 }, (_, i) => i));
   const parentRef = useRef<HTMLDivElement>(null);
   const isUpdating = useRef(false);
+  const currentColumnWidthsRef = useRef(columnWidths);
 
   const HEADER_HEIGHT = 34;
   const ROW_HEADER_WIDTH = 126;
@@ -42,6 +46,10 @@ export default function Home() {
     document.addEventListener('mouseup', handleMouseUp);
     return () => document.removeEventListener('mouseup', handleMouseUp);
   }, []);
+
+  useEffect(() => {
+    currentColumnWidthsRef.current = columnWidths;
+  }, [columnWidths]);
 
   const applyFilter = (column: number, value: string) => {
     setFilters(prev => {
@@ -75,8 +83,30 @@ export default function Home() {
         return next;
       });
     }
-    setMaxRows(prev => (rowIndex >= prev - 2 ? prev + 10 : prev));
-    setMaxCols(prev => (colIndex >= prev - 2 ? prev + 10 : prev));
+    setMaxRows(prev => {
+      if (rowIndex >= prev - 2) {
+        const newMax = prev + 10;
+        setRowHeights(prevHeights => {
+          const newHeights = [...prevHeights];
+          while (newHeights.length < newMax + 1) newHeights.push(34);
+          return newHeights;
+        });
+        return newMax;
+      }
+      return prev;
+    });
+    setMaxCols(prev => {
+      if (colIndex >= prev - 2) {
+        const newMax = prev + 10;
+        setColumnWidths(prevWidths => {
+          const newWidths = [...prevWidths];
+          while (newWidths.length < newMax + 1) newWidths.push(126);
+          return newWidths;
+        });
+        return newMax;
+      }
+      return prev;
+    });
   };
 
   useEffect(() => {
@@ -108,6 +138,21 @@ export default function Home() {
       setSortOrder('asc');
       sortData(cells, maxRows, maxCols, columnIndex, 'asc');
     }
+  };
+
+  const handleDragStart = (e: React.DragEvent, colIndex: number) => {
+    e.dataTransfer.setData('colIndex', colIndex.toString());
+  };
+
+  const handleDrop = (e: React.DragEvent, targetColIndex: number) => {
+    const fromColIndex = parseInt(e.dataTransfer.getData('colIndex'), 10);
+    const fromIdx = columnOrder.indexOf(fromColIndex);
+    const toIdx = columnOrder.indexOf(targetColIndex);
+    if (fromIdx === toIdx) return;
+    const newOrder = [...columnOrder];
+    newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, fromColIndex);
+    setColumnOrder(newOrder);
   };
 
   const filteredIndices = getFilteredRowIndices(cells, maxRows, filters);
@@ -146,6 +191,9 @@ export default function Home() {
           setCells(newCells);
           setMaxRows(sheet.length + 2);
           setMaxCols(cols + 2);
+          setColumnWidths(Array(cols + 3).fill(126));
+          setRowHeights(Array(sheet.length + 3).fill(34));
+          setColumnOrder(Array.from({ length: cols + 3 }, (_, i) => i));
         } catch (err: any) {
           alert(`Import failed: ${err.message}`);
         }
@@ -176,16 +224,16 @@ export default function Home() {
 
   const columnVirtualizer = useVirtualizer({
     horizontal: true,
-    count: maxCols,
+    count: maxCols + 1,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 126,
+    estimateSize: (index) => columnWidths[index] || 126,
     overscan: 5,
   });
 
   const rowVirtualizer = useVirtualizer({
-    count: items.length,
+    count: items.length + 1,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 34,
+    estimateSize: (index) => index === 0 ? HEADER_HEIGHT : rowHeights[items[index - 1].rowIndex],
     overscan: 5,
   });
 
@@ -198,6 +246,10 @@ export default function Home() {
         setGroupingColumn={setGroupingColumn}
         groupingColumn={groupingColumn}
         applyFilter={applyFilter}
+        columnWidths={columnWidths}
+        setColumnWidths={setColumnWidths}
+        columnOrder={columnOrder}
+        setColumnOrder={setColumnOrder}
       />
       <div className="flex-1 relative mt-13 overflow-hidden">
         {selectionStart && selectionEnd && (
@@ -216,52 +268,6 @@ export default function Home() {
             onClose={() => setIsChartOpen(false)}
           />
         )}
-        {/* Column Headers with Sorting */}
-        <div className="absolute top-0 left-[126px] right-0 h-[34px] bg-gray-100">
-          {columnVirtualizer.getVirtualItems().map((cv) => (
-            <div
-              key={cv.index}
-              className="absolute flex items-center justify-center font-bold border border-gray-300 cursor-pointer"
-              style={{
-                top: 0,
-                left: cv.start,
-                width: cv.size,
-                height: 34,
-                boxSizing: 'border-box',
-              }}
-              onClick={() => handleSort(cv.index)}
-            >
-              {String.fromCharCode(65 + cv.index)}
-              {sortColumn === cv.index && (
-                <span>{sortOrder === 'asc' ? ' 🔼' : ' 🔽'}</span>
-              )}
-            </div>
-          ))}
-        </div>
-        {/* Row Headers */}
-        <div
-          className="absolute left-0 top-[34px] bottom-0 w-[126px] bg-gray-100"
-          style={{ pointerEvents: 'none' }}
-        >
-          {rowVirtualizer.getVirtualItems().map((rv) => {
-            const item = items[rv.index];
-            return (
-              <div
-                key={rv.index}
-                className="absolute flex items-center justify-center font-bold border border-gray-300"
-                style={{
-                  top: rv.start,
-                  left: 0,
-                  width: 126,
-                  height: rv.size,
-                  boxSizing: 'border-box',
-                }}
-              >
-                {item.type === 'row' ? item.rowIndex + 1 : ''}
-              </div>
-            );
-          })}
-        </div>
         <GridComponent
           items={items}
           cells={cells}
@@ -277,6 +283,16 @@ export default function Home() {
           handleCellChange={handleCellChange}
           parentRef={parentRef}
           maxCols={maxCols}
+          columnOrder={columnOrder}
+          columnWidths={columnWidths}
+          rowHeights={rowHeights}
+          columnVirtualizer={columnVirtualizer}
+          rowVirtualizer={rowVirtualizer}
+          sortColumn={sortColumn}
+          sortOrder={sortOrder}
+          handleSort={handleSort}
+          setColumnWidths={setColumnWidths}
+          setRowHeights={setRowHeights}
         />
       </div>
     </div>
