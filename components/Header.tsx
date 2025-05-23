@@ -1,3 +1,4 @@
+// components/Header.tsx
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Upload, Download } from 'lucide-react';
@@ -5,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { ThemeToggle } from './ThemeToggle'; // Import ThemeToggle
 
 interface HeaderProps {
   onImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -22,9 +24,9 @@ export function Header({ onImport, onExport, maxCols, setGroupingColumn, groupin
   const columns = Array.from({ length: maxCols }, (_, i) => String.fromCharCode(65 + i));
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-10 bg-white shadow-md p-2 flex justify-between items-center">
-      <h1 className="text-xl font-bold">Spreadsheet App</h1>
-      <div className="flex gap-2">
+    <div className="fixed top-0 left-0 right-0 z-10 bg-white dark:bg-gray-800 shadow-md p-2 flex justify-between items-center">
+      <h1 className="text-xl font-bold text-gray-900 dark:text-white">Spreadsheet App</h1>
+      <div className="flex gap-2 items-center">
         {/* Grouping Select */}
         <Select
           value={groupingColumn !== null ? String(groupingColumn) : 'none'}
@@ -82,7 +84,7 @@ export function Header({ onImport, onExport, maxCols, setGroupingColumn, groupin
             </div>
           </PopoverContent>
         </Popover>
-        {/* Existing Import/Export */}
+        {/* Import/Export */}
         <TooltipProvider>
           <div className="flex gap-2">
             <Tooltip>
@@ -122,6 +124,8 @@ export function Header({ onImport, onExport, maxCols, setGroupingColumn, groupin
             </Tooltip>
           </div>
         </TooltipProvider>
+        {/* Theme Toggle */}
+        <ThemeToggle />
       </div>
     </div>
   );

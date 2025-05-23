@@ -22,11 +22,11 @@ interface GridComponentProps {
   rowHeights: number[];
   columnVirtualizer: ReturnType<typeof useVirtualizer>;
   rowVirtualizer: ReturnType<typeof useVirtualizer>;
-  sortColumn: number | null;              // Added
-  sortOrder: 'asc' | 'desc' | null;      // Added
-  handleSort: (columnIndex: number) => void; // Added
-  setColumnWidths: (widths: number[]) => void; // Added
-  setRowHeights: (heights: number[]) => void;  // Added
+  sortColumn: number | null;
+  sortOrder: 'asc' | 'desc' | null;
+  handleSort: (columnIndex: number) => void;
+  setColumnWidths: (widths: number[]) => void;
+  setRowHeights: (heights: number[]) => void;
 }
 
 export function GridComponent({
@@ -77,7 +77,7 @@ export function GridComponent({
                 return (
                   <div
                     key={cv.index}
-                    className="absolute flex items-center justify-center font-bold border border-gray-300 bg-gray-100"
+                    className="absolute flex items-center justify-center font-bold border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     style={{
                       top: rv.start,
                       left: cv.start,
@@ -93,7 +93,7 @@ export function GridComponent({
               return (
                 <div
                   key={cv.index}
-                  className="absolute flex items-center justify-center font-bold border border-gray-300 bg-gray-100 cursor-pointer"
+                  className="absolute flex items-center justify-center font-bold border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 cursor-pointer"
                   style={{
                     top: rv.start,
                     left: cv.start,
@@ -107,7 +107,7 @@ export function GridComponent({
                     <span>{sortOrder === 'asc' ? ' 🔼' : ' 🔽'}</span>
                   )}
                   <div
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-gray-200"
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-gray-200 dark:hover:bg-gray-600"
                     onMouseDown={(e) => {
                       e.stopPropagation();
                       const startX = e.clientX;
@@ -142,7 +142,7 @@ export function GridComponent({
             return (
               <div
                 key={`group-${rowIndex}`}
-                className="absolute w-full h-[34px] bg-gray-200 flex items-center justify-start p-2 font-bold"
+                className="absolute w-full h-[34px] bg-gray-200 dark:bg-gray-800 flex items-center justify-start p-2 font-bold text-gray-900 dark:text-gray-100"
                 style={{ top: rv.start, left: 0 }}
               >
                 {item.value || '(Empty)'}
@@ -156,7 +156,7 @@ export function GridComponent({
               return (
                 <div
                   key={cv.index}
-                  className="absolute flex items-center justify-center font-bold border border-gray-300 bg-gray-100"
+                  className="absolute flex items-center justify-center font-bold border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   style={{
                     top: rv.start,
                     left: cv.start,
@@ -166,7 +166,7 @@ export function GridComponent({
                 >
                   {dataRowIndex + 1}
                   <div
-                    className="absolute bottom-0 left-0 w-full h-1 cursor-row-resize bg-transparent hover:bg-gray-200"
+                    className="absolute bottom-0 left-0 w-full h-1 cursor-row-resize bg-transparent hover:bg-gray-200 dark:hover:bg-gray-600"
                     onMouseDown={(e) => {
                       e.stopPropagation();
                       const startY = e.clientY;
@@ -209,8 +209,8 @@ export function GridComponent({
                 key={key}
                 className={`
                   absolute
-                  ${isSelected ? 'bg-blue-100' : ''}
-                  ${isSelected && isFocused ? 'bg-white' : ''}
+                  ${isSelected ? 'bg-blue-200 dark:bg-blue-800' : ''}
+                  ${isSelected && isFocused ? 'bg-white dark:bg-gray-900' : ''}
                 `}
                 style={{
                   top: rv.start,
@@ -233,8 +233,8 @@ export function GridComponent({
                 <input
                   type="text"
                   className={`
-                    absolute bg-transparent outline-none
-                    ${isFocused ? 'border-2 border-blue-500' : 'border border-gray-300'}
+                    absolute bg-transparent outline-none text-gray-900 dark:text-gray-100
+                    ${isFocused ? 'border-2 border-blue-500 dark:border-blue-400' : 'border border-gray-300 dark:border-gray-600'}
                   `}
                   style={{
                     top: 0,
