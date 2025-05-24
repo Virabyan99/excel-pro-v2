@@ -1,25 +1,30 @@
 // components/Header.tsx
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Upload, Download } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { ThemeToggle } from './ThemeToggle';
-import { FormulaBar } from './FormulaBar'; // Import the new FormulaBar component
+import React, { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Upload, Download } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { ThemeToggle } from './ThemeToggle'
+import { FormulaBar } from './FormulaBar'
+import { Sheet } from '@/lib/types'
 
 interface HeaderProps {
-  onImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onExport: () => void;
-  maxCols: number;
-  setGroupingColumn: (column: number | null) => void;
-  groupingColumn: number | null;
-  applyFilter: (column: number, value: string) => void;
-  focusedCell: { row: number; col: number } | null; // Added for FormulaBar
-  formulas: Record<string, string>; // Added for FormulaBar
-  cells: Record<string, string>; // Added for FormulaBar
-  handleCellChange: (rowIndex: number, colIndex: number, value: string) => void; // Added for FormulaBar
+  onImport: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onExport: () => void
+  maxCols: number
+  setGroupingColumn: (column: number | null) => void
+  groupingColumn: number | null
+  applyFilter: (column: number, value: string) => void
+  focusedCell: { row: number; col: number } | null
+  formulas: Record<string, string>
+  cells: Record<string, string>
+  handleCellChange: (rowIndex: number, colIndex: number, value: string) => void
+  sheets: Sheet[]
+  activeSheetIndex: number
+  switchSheet: (index: number) => void
+  addSheet: () => void
 }
 
 export function Header({
@@ -33,15 +38,38 @@ export function Header({
   formulas,
   cells,
   handleCellChange,
+  sheets,
+  activeSheetIndex,
+  switchSheet,
+  addSheet,
 }: HeaderProps) {
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [filterColumnLocal, setFilterColumnLocal] = useState<number | null>(null);
-  const [filterValueLocal, setFilterValueLocal] = useState('');
-  const columns = Array.from({ length: maxCols }, (_, i) => String.fromCharCode(65 + i));
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [filterColumnLocal, setFilterColumnLocal] = useState<number | null>(null)
+  const [filterValueLocal, setFilterValueLocal] = useState('')
+  const columns = Array.from({ length: maxCols }, (_, i) => String.fromCharCode(65 + i))
 
   return (
     <div className="fixed top-0 left-0 right-0 z-10 bg-white dark:bg-gray-800 shadow-md p-2 flex items-center">
-      <h1 className="text-xl font-bold text-gray-900 dark:text-white mr-4">Spreadsheet App</h1>
+      <div className="flex items-center space-x-2 mr-4">
+        <Select
+          value={String(activeSheetIndex)}
+          onValueChange={(value) => switchSheet(Number(value))}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Select sheet" />
+          </SelectTrigger>
+          <SelectContent>
+            {sheets.map((sheet, index) => (
+              <SelectItem key={index} value={String(index)}>
+                {sheet.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button variant="outline" onClick={addSheet} className="px-2 py-1">
+          +
+        </Button>
+      </div>
       <div className="flex-grow mr-4">
         <FormulaBar
           focusedCell={focusedCell}
@@ -51,7 +79,6 @@ export function Header({
         />
       </div>
       <div className="flex gap-2 items-center">
-        {/* Grouping Select */}
         <Select
           value={groupingColumn !== null ? String(groupingColumn) : 'none'}
           onValueChange={(value) => setGroupingColumn(value === 'none' ? null : Number(value))}
@@ -68,7 +95,6 @@ export function Header({
             ))}
           </SelectContent>
         </Select>
-        {/* Filter Popover */}
         <Popover open={filterOpen} onOpenChange={setFilterOpen}>
           <PopoverTrigger asChild>
             <Button variant="outline">Filter</Button>
@@ -98,8 +124,8 @@ export function Header({
               <Button
                 onClick={() => {
                   if (filterColumnLocal !== null) {
-                    applyFilter(filterColumnLocal, filterValueLocal);
-                    setFilterOpen(false);
+                    applyFilter(filterColumnLocal, filterValueLocal)
+                    setFilterOpen(false)
                   }
                 }}
               >
@@ -108,7 +134,6 @@ export function Header({
             </div>
           </PopoverContent>
         </Popover>
-        {/* Import/Export */}
         <TooltipProvider>
           <div className="flex gap-2">
             <Tooltip>
@@ -151,5 +176,5 @@ export function Header({
         <ThemeToggle />
       </div>
     </div>
-  );
+  )
 }

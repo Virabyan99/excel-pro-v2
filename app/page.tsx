@@ -13,6 +13,7 @@ import {
   getGroupedItems,
 } from '@/components/DataHandler'
 import { getDataArray, setDataArray } from '@/lib/dataUtils'
+import { Document, defaultDocument } from '@/lib/types'
 
 const ChartModal = dynamic(
   () => import('@/components/ChartModal').then((mod) => mod.ChartModal),
@@ -22,143 +23,202 @@ const ChartModal = dynamic(
 type CellMap = Record<string, string>
 
 export default function Home() {
-  const [cells, setCells] = useState<CellMap>({})
-  const [formulas, setFormulas] = useState<Record<string, string>>({})
-  const [maxRows, setMaxRows] = useState(22)
-  const [maxCols, setMaxCols] = useState(14)
-  const [focusedCell, setFocusedCell] = useState<{
-    row: number
-    col: number
-  } | null>(null)
-  const [selectionStart, setSelectionStart] = useState<{
-    row: number
-    col: number
-  } | null>(null)
-  const [selectionEnd, setSelectionEnd] = useState<{
-    row: number
-    col: number
-  } | null>(null)
-  const [isSelecting, setIsSelecting] = useState(false)
-  const [isChartOpen, setIsChartOpen] = useState(false)
-  const [sortColumn, setSortColumn] = useState<number | null>(null)
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null)
-  const [filters, setFilters] = useState<Record<number, string>>({})
-  const [groupingColumn, setGroupingColumn] = useState<number | null>(null)
-  const [columnWidths, setColumnWidths] = useState<number[]>(
-    Array(15).fill(126)
-  )
-  const [rowHeights, setRowHeights] = useState<number[]>(Array(23).fill(34))
-  const [columnOrder, setColumnOrder] = useState<number[]>(
-    Array.from({ length: 15 }, (_, i) => i)
-  )
+  const [document, setDocument] = useState<Document>(defaultDocument)
+  const currentSheet = document.sheets[document.activeSheetIndex]
   const parentRef = useRef<HTMLDivElement>(null)
   const isUpdating = useRef(false)
-  const currentColumnWidthsRef = useRef(columnWidths)
+  const currentColumnWidthsRef = useRef(currentSheet.columnWidths)
 
   const HEADER_HEIGHT = 34
   const ROW_HEADER_WIDTH = 126
 
   useEffect(() => {
     const handleMouseUp = () => setIsSelecting(false)
-    document.addEventListener('mouseup', handleMouseUp)
-    return () => document.removeEventListener('mouseup', handleMouseUp)
+    window.document.addEventListener('mouseup', handleMouseUp)
+    return () => window.document.removeEventListener('mouseup', handleMouseUp)
   }, [])
 
   useEffect(() => {
-    currentColumnWidthsRef.current = columnWidths
-  }, [columnWidths])
+    currentColumnWidthsRef.current = currentSheet.columnWidths
+  }, [currentSheet.columnWidths])
+
+  const switchSheet = (index: number) => {
+    setDocument((prev) => ({ ...prev, activeSheetIndex: index }))
+  }
+
+  const addSheet = () => {
+    setDocument((prev) => {
+      const newSheet = {
+        name: `Sheet${prev.sheets.length + 1}`,
+        cells: {},
+        formulas: {},
+        maxRows: 22,
+        maxCols: 14,
+        focusedCell: null,
+        selectionStart: null,
+        selectionEnd: null,
+        isSelecting: false,
+        sortColumn: null,
+        sortOrder: null,
+        filters: {},
+        groupingColumn: null,
+        columnWidths: Array(15).fill(126),
+        rowHeights: Array(23).fill(34),
+        columnOrder: Array.from({ length: 15 }, (_, i) => i),
+      }
+      return {
+        ...prev,
+        sheets: [...prev.sheets, newSheet],
+        activeSheetIndex: prev.sheets.length,
+      }
+    })
+  }
+
+  const handleCellChange = (rowIndex: number, colIndex: number, rawValue: string) => {
+    setDocument((prev) => {
+      const newSheets = [...prev.sheets]
+      const currentSheet = { ...newSheets[prev.activeSheetIndex] }
+      const key = `${rowIndex},${colIndex}`
+      if (rawValue.startsWith('=')) {
+        currentSheet.formulas = { ...currentSheet.formulas, [key]: rawValue }
+        currentSheet.cells = { ...currentSheet.cells, [key]: rawValue }
+      } else {
+        const newFormulas = { ...currentSheet.formulas }
+        delete newFormulas[key]
+        currentSheet.formulas = newFormulas
+        const newCells = { ...currentSheet.cells }
+        if (rawValue.trim() === '') {
+          delete newCells[key]
+        } else {
+          newCells[key] = rawValue
+        }
+        currentSheet.cells = newCells
+      }
+      if (rowIndex >= currentSheet.maxRows - 2) {
+        currentSheet.maxRows += 10
+        currentSheet.rowHeights = [...currentSheet.rowHeights, ...Array(10).fill(34)]
+      }
+      if (colIndex >= currentSheet.maxCols - 2) {
+        currentSheet.maxCols += 10
+        currentSheet.columnWidths = [...currentSheet.columnWidths, ...Array(10).fill(126)]
+        currentSheet.columnOrder = [
+          ...currentSheet.columnOrder,
+          ...Array.from({ length: 10 }, (_, i) => currentSheet.columnOrder.length + i),
+        ]
+      }
+      newSheets[prev.activeSheetIndex] = currentSheet
+      return { ...prev, sheets: newSheets }
+    })
+  }
 
   const applyFilter = (column: number, value: string) => {
-    setFilters((prev) => {
+    setDocument((prev) => {
+      const newSheets = [...prev.sheets]
+      const currentSheet = { ...newSheets[prev.activeSheetIndex] }
       if (value.trim() === '') {
-        const { [column]: _, ...rest } = prev
-        return rest
+        const { [column]: _, ...rest } = currentSheet.filters
+        currentSheet.filters = rest
       } else {
-        return { ...prev, [column]: value }
+        currentSheet.filters = { ...currentSheet.filters, [column]: value }
       }
+      newSheets[prev.activeSheetIndex] = currentSheet
+      return { ...prev, sheets: newSheets }
     })
   }
 
-  const handleCellChange = (
-    rowIndex: number,
-    colIndex: number,
-    rawValue: string
-  ) => {
-    const key = `${rowIndex},${colIndex}`
-    if (rawValue.startsWith('=')) {
-      setFormulas((prev) => ({ ...prev, [key]: rawValue }))
-      setCells((prev) => ({ ...prev, [key]: rawValue }))
-    } else {
-      setFormulas((prev) => {
-        const next = { ...prev }
-        delete next[key]
-        return next
-      })
-      setCells((prev) => {
-        const next = { ...prev }
-        if (rawValue.trim() === '') {
-          delete next[key]
-        } else {
-          next[key] = rawValue
-        }
-        return next
-      })
-    }
-    setMaxRows((prev) => {
-      if (rowIndex >= prev - 2) {
-        const newMax = prev + 10
-        setRowHeights((prevHeights) => {
-          const newHeights = [...prevHeights]
-          while (newHeights.length < newMax + 1) newHeights.push(34)
-          return newHeights
-        })
-        return newMax
-      }
-      return prev
-    })
-    setMaxCols((prev) => {
-      if (colIndex >= prev - 2) {
-        const newMax = prev + 10
-        setColumnWidths((prevWidths) => {
-          const newWidths = [...prevWidths]
-          while (newWidths.length < newMax + 1) newWidths.push(126)
-          return newWidths
-        })
-        return newMax
-      }
-      return prev
+  const setGroupingColumn = (column: number | null) => {
+    setDocument((prev) => {
+      const newSheets = [...prev.sheets]
+      const currentSheet = { ...newSheets[prev.activeSheetIndex] }
+      currentSheet.groupingColumn = column
+      newSheets[prev.activeSheetIndex] = currentSheet
+      return { ...prev, sheets: newSheets }
     })
   }
 
-  useEffect(() => {
-    if (isUpdating.current) {
-      isUpdating.current = false
-      return
-    }
-    const newCells = calculateFormulas(cells, formulas)
-    if (JSON.stringify(newCells) !== JSON.stringify(cells)) {
-      isUpdating.current = true
-      setCells(newCells)
-    }
-  }, [cells, formulas])
+  const setFocusedCell = (cell: { row: number; col: number } | null) => {
+    setDocument((prev) => {
+      const newSheets = [...prev.sheets]
+      const currentSheet = { ...newSheets[prev.activeSheetIndex] }
+      currentSheet.focusedCell = cell
+      newSheets[prev.activeSheetIndex] = currentSheet
+      return { ...prev, sheets: newSheets }
+    })
+  }
+
+  const setSelectionStart = (cell: { row: number; col: number } | null) => {
+    setDocument((prev) => {
+      const newSheets = [...prev.sheets]
+      const currentSheet = { ...newSheets[prev.activeSheetIndex] }
+      currentSheet.selectionStart = cell
+      newSheets[prev.activeSheetIndex] = currentSheet
+      return { ...prev, sheets: newSheets }
+    })
+  }
+
+  const setSelectionEnd = (cell: { row: number; col: number } | null) => {
+    setDocument((prev) => {
+      const newSheets = [...prev.sheets]
+      const currentSheet = { ...newSheets[prev.activeSheetIndex] }
+      currentSheet.selectionEnd = cell
+      newSheets[prev.activeSheetIndex] = currentSheet
+      return { ...prev, sheets: newSheets }
+    })
+  }
+
+  const setIsSelecting = (selecting: boolean) => {
+    setDocument((prev) => {
+      const newSheets = [...prev.sheets]
+      const currentSheet = { ...newSheets[prev.activeSheetIndex] }
+      currentSheet.isSelecting = selecting
+      newSheets[prev.activeSheetIndex] = currentSheet
+      return { ...prev, sheets: newSheets }
+    })
+  }
+
+  const setColumnWidths = (widths: number[]) => {
+    setDocument((prev) => {
+      const newSheets = [...prev.sheets]
+      const currentSheet = { ...newSheets[prev.activeSheetIndex] }
+      currentSheet.columnWidths = widths
+      newSheets[prev.activeSheetIndex] = currentSheet
+      return { ...prev, sheets: newSheets }
+    })
+  }
+
+  const setRowHeights = (heights: number[]) => {
+    setDocument((prev) => {
+      const newSheets = [...prev.sheets]
+      const currentSheet = { ...newSheets[prev.activeSheetIndex] }
+      currentSheet.rowHeights = heights
+      newSheets[prev.activeSheetIndex] = currentSheet
+      return { ...prev, sheets: newSheets }
+    })
+  }
 
   const handleSort = (columnIndex: number) => {
-    if (sortColumn === columnIndex) {
-      if (sortOrder === 'asc') {
-        setSortOrder('desc')
-        sortData(cells, maxRows, maxCols, columnIndex, 'desc')
-      } else if (sortOrder === 'desc') {
-        setSortColumn(null)
-        setSortOrder(null)
+    setDocument((prev) => {
+      const newSheets = [...prev.sheets]
+      const currentSheet = { ...newSheets[prev.activeSheetIndex] }
+      if (currentSheet.sortColumn === columnIndex) {
+        if (currentSheet.sortOrder === 'asc') {
+          currentSheet.sortOrder = 'desc'
+          sortData(currentSheet.cells, currentSheet.maxRows, currentSheet.maxCols, columnIndex, 'desc')
+        } else if (currentSheet.sortOrder === 'desc') {
+          currentSheet.sortColumn = null
+          currentSheet.sortOrder = null
+        } else {
+          currentSheet.sortOrder = 'asc'
+          sortData(currentSheet.cells, currentSheet.maxRows, currentSheet.maxCols, columnIndex, 'asc')
+        }
       } else {
-        setSortOrder('asc')
-        sortData(cells, maxRows, maxCols, columnIndex, 'asc')
+        currentSheet.sortColumn = columnIndex
+        currentSheet.sortOrder = 'asc'
+        sortData(currentSheet.cells, currentSheet.maxRows, currentSheet.maxCols, columnIndex, 'asc')
       }
-    } else {
-      setSortColumn(columnIndex)
-      setSortOrder('asc')
-      sortData(cells, maxRows, maxCols, columnIndex, 'asc')
-    }
+      newSheets[prev.activeSheetIndex] = currentSheet
+      return { ...prev, sheets: newSheets }
+    })
   }
 
   const handleDragStart = (e: React.DragEvent, colIndex: number) => {
@@ -167,26 +227,29 @@ export default function Home() {
 
   const handleDrop = (e: React.DragEvent, targetColIndex: number) => {
     const fromColIndex = parseInt(e.dataTransfer.getData('colIndex'), 10)
-    const fromIdx = columnOrder.indexOf(fromColIndex)
-    const toIdx = columnOrder.indexOf(targetColIndex)
+    const fromIdx = currentSheet.columnOrder.indexOf(fromColIndex)
+    const toIdx = currentSheet.columnOrder.indexOf(targetColIndex)
     if (fromIdx === toIdx) return
-    const newOrder = [...columnOrder]
-    newOrder.splice(fromIdx, 1)
-    newOrder.splice(toIdx, 0, fromColIndex)
-    setColumnOrder(newOrder)
+    setDocument((prev) => {
+      const newSheets = [...prev.sheets]
+      const currentSheet = { ...newSheets[prev.activeSheetIndex] }
+      const newOrder = [...currentSheet.columnOrder]
+      newOrder.splice(fromIdx, 1)
+      newOrder.splice(toIdx, 0, fromColIndex)
+      currentSheet.columnOrder = newOrder
+      newSheets[prev.activeSheetIndex] = currentSheet
+      return { ...prev, sheets: newSheets }
+    })
   }
 
-  const filteredIndices = getFilteredRowIndices(cells, maxRows, filters)
-  const items = getGroupedItems(cells, filteredIndices, groupingColumn)
-
   const exportToCSV = () => {
-    const data = getDataArray(cells, maxRows, maxCols)
+    const data = getDataArray(currentSheet.cells, currentSheet.maxRows, currentSheet.maxCols)
     const csv = Papa.unparse(data)
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = 'sheet.csv'
+    anchor.download = `${currentSheet.name}.csv`
     anchor.click()
     URL.revokeObjectURL(url)
   }
@@ -209,12 +272,18 @@ export default function Home() {
               }
             })
           })
-          setCells(newCells)
-          setMaxRows(sheet.length + 2)
-          setMaxCols(cols + 2)
-          setColumnWidths(Array(cols + 3).fill(126))
-          setRowHeights(Array(sheet.length + 3).fill(34))
-          setColumnOrder(Array.from({ length: cols + 3 }, (_, i) => i))
+          setDocument((prev) => {
+            const newSheets = [...prev.sheets]
+            const currentSheet = { ...newSheets[prev.activeSheetIndex] }
+            currentSheet.cells = newCells
+            currentSheet.maxRows = sheet.length + 2
+            currentSheet.maxCols = cols + 2
+            currentSheet.columnWidths = Array(cols + 3).fill(126)
+            currentSheet.rowHeights = Array(sheet.length + 3).fill(34)
+            currentSheet.columnOrder = Array.from({ length: cols + 3 }, (_, i) => i)
+            newSheets[prev.activeSheetIndex] = currentSheet
+            return { ...prev, sheets: newSheets }
+          })
         } catch (err: any) {
           alert(`Import failed: ${err.message}`)
         }
@@ -224,13 +293,31 @@ export default function Home() {
     e.target.value = ''
   }
 
+  useEffect(() => {
+    if (isUpdating.current) {
+      isUpdating.current = false
+      return
+    }
+    const newCells = calculateFormulas(currentSheet.cells, currentSheet.formulas)
+    if (JSON.stringify(newCells) !== JSON.stringify(currentSheet.cells)) {
+      isUpdating.current = true
+      setDocument((prev) => {
+        const newSheets = [...prev.sheets]
+        const currentSheet = { ...newSheets[prev.activeSheetIndex] }
+        currentSheet.cells = newCells
+        newSheets[prev.activeSheetIndex] = currentSheet
+        return { ...prev, sheets: newSheets }
+      })
+    }
+  }, [currentSheet.cells, currentSheet.formulas])
+
   function getSelectedData() {
-    if (!selectionStart || !selectionEnd)
+    if (!currentSheet.selectionStart || !currentSheet.selectionEnd)
       return { rowLabels: [], colLabels: [], data: [] }
-    const rowMin = Math.min(selectionStart.row, selectionEnd.row)
-    const rowMax = Math.max(selectionStart.row, selectionEnd.row)
-    const colMin = Math.min(selectionStart.col, selectionEnd.col)
-    const colMax = Math.max(selectionStart.col, selectionEnd.col)
+    const rowMin = Math.min(currentSheet.selectionStart.row, currentSheet.selectionEnd.row)
+    const rowMax = Math.max(currentSheet.selectionStart.row, currentSheet.selectionEnd.row)
+    const colMin = Math.min(currentSheet.selectionStart.col, currentSheet.selectionEnd.col)
+    const colMax = Math.max(currentSheet.selectionStart.col, currentSheet.selectionEnd.col)
     const rowLabels = Array.from({ length: rowMax - rowMin + 1 }, (_, i) =>
       String(rowMin + i + 1)
     )
@@ -240,7 +327,7 @@ export default function Home() {
     const data = rowLabels.map((_, i) =>
       colLabels.map((_, j) => {
         const key = `${rowMin + i},${colMin + j}`
-        const raw = cells[key] || ''
+        const raw = currentSheet.cells[key] || ''
         const num = parseFloat(raw)
         return isNaN(num) ? 0 : num
       })
@@ -250,24 +337,27 @@ export default function Home() {
 
   const columnVirtualizer = useVirtualizer({
     horizontal: true,
-    count: maxCols + 1,
+    count: currentSheet.maxCols + 1,
     getScrollElement: () => parentRef.current,
-    estimateSize: (index) => columnWidths[index] || 126,
+    estimateSize: (index) => currentSheet.columnWidths[index] || 126,
     overscan: 5,
   })
+
+  const filteredIndices = getFilteredRowIndices(
+    currentSheet.cells,
+    currentSheet.maxRows,
+    currentSheet.filters
+  )
+  const items = getGroupedItems(currentSheet.cells, filteredIndices, currentSheet.groupingColumn)
 
   const rowVirtualizer = useVirtualizer({
     count: items.length + 1,
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
-      if (index === 0) {
-        return HEADER_HEIGHT; // Header row
-      }
-      const item = items[index - 1];
-      if (item.type === 'group') {
-        return 34; // Fixed height for group headers
-      }
-      return rowHeights[item.rowIndex] || 34; // Data row height with fallback
+      if (index === 0) return HEADER_HEIGHT
+      const item = items[index - 1]
+      if (item.type === 'group') return 34
+      return currentSheet.rowHeights[item.rowIndex] || 34
     },
     overscan: 5,
   })
@@ -277,53 +367,58 @@ export default function Home() {
       <Header
         onImport={handleImportCSV}
         onExport={exportToCSV}
-        maxCols={maxCols}
+        maxCols={currentSheet.maxCols}
         setGroupingColumn={setGroupingColumn}
-        groupingColumn={groupingColumn}
+        groupingColumn={currentSheet.groupingColumn}
         applyFilter={applyFilter}
-        focusedCell={focusedCell}
-        formulas={formulas}
-        cells={cells}
+        focusedCell={currentSheet.focusedCell}
+        formulas={currentSheet.formulas}
+        cells={currentSheet.cells}
         handleCellChange={handleCellChange}
+        sheets={document.sheets}
+        activeSheetIndex={document.activeSheetIndex}
+        switchSheet={switchSheet}
+        addSheet={addSheet}
       />
       <div className="flex-1 relative mt-13 overflow-hidden">
-        {selectionStart && selectionEnd && (
+        {currentSheet.selectionStart && currentSheet.selectionEnd && (
           <button
-            onClick={() => setIsChartOpen(true)}
-            className="absolute bottom-4 right-4 z-10 px-3 py-1 bg-blue-600 text-white rounded">
+            onClick={() => setDocument((prev) => ({ ...prev, sheets: prev.sheets.map((s, i) => i === prev.activeSheetIndex ? { ...s, isChartOpen: true } : s) }))}
+            className="absolute bottom-4 right-4 z-10 px-3 py-1 bg-blue-600 text-white rounded"
+          >
             Visualize
           </button>
         )}
-        {isChartOpen && (
+        {currentSheet.isChartOpen && (
           <ChartModal
             rowLabels={getSelectedData().rowLabels}
             colLabels={getSelectedData().colLabels}
             data={getSelectedData().data}
-            onClose={() => setIsChartOpen(false)}
+            onClose={() => setDocument((prev) => ({ ...prev, sheets: prev.sheets.map((s, i) => i === prev.activeSheetIndex ? { ...s, isChartOpen: false } : s) }))}
           />
         )}
         <GridComponent
           items={items}
-          cells={cells}
-          formulas={formulas}
-          focusedCell={focusedCell}
-          selectionStart={selectionStart}
-          selectionEnd={selectionEnd}
-          isSelecting={isSelecting}
+          cells={currentSheet.cells}
+          formulas={currentSheet.formulas}
+          focusedCell={currentSheet.focusedCell}
+          selectionStart={currentSheet.selectionStart}
+          selectionEnd={currentSheet.selectionEnd}
+          isSelecting={currentSheet.isSelecting}
           setFocusedCell={setFocusedCell}
           setSelectionStart={setSelectionStart}
           setSelectionEnd={setSelectionEnd}
           setIsSelecting={setIsSelecting}
           handleCellChange={handleCellChange}
           parentRef={parentRef}
-          maxCols={maxCols}
-          columnOrder={columnOrder}
-          columnWidths={columnWidths}
-          rowHeights={rowHeights}
+          maxCols={currentSheet.maxCols}
+          columnOrder={currentSheet.columnOrder}
+          columnWidths={currentSheet.columnWidths}
+          rowHeights={currentSheet.rowHeights}
           columnVirtualizer={columnVirtualizer}
           rowVirtualizer={rowVirtualizer}
-          sortColumn={sortColumn}
-          sortOrder={sortOrder}
+          sortColumn={currentSheet.sortColumn}
+          sortOrder={currentSheet.sortOrder}
           handleSort={handleSort}
           setColumnWidths={setColumnWidths}
           setRowHeights={setRowHeights}
