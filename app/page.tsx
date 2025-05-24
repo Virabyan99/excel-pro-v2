@@ -286,7 +286,7 @@ export default function Home() {
     const csv = Papa.unparse(data)
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
+    const anchor = window.document.createElement('a')
     anchor.href = url
     anchor.download = `${currentSheet.name}.csv`
     anchor.click()
@@ -423,6 +423,33 @@ export default function Home() {
     });
   };
 
+  const handleExportDocument = () => {
+    const json = JSON.stringify(document, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = window.document.createElement('a')
+    a.href = url
+    a.download = 'document.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+ const handleImportDocument = (text: string) => {
+  console.log('Import document called with text:', text)
+  try {
+    const parsed = JSON.parse(text)
+    console.log('Parsed JSON:', parsed)
+    if (!parsed.sheets || !Array.isArray(parsed.sheets)) {
+      throw new Error('Invalid Document format')
+    }
+    setDocument({ ...parsed, activeSheetIndex: 0 })
+    console.log('Document set successfully')
+  } catch (e) {
+    console.error('Import error:', e)
+    alert(`Import failed: ${e.message}`)
+  }
+}
+
   // Log current sheet sizes for debugging
   console.log(`Sheet ${currentSheet.name}: columnWidths`, currentSheet.columnWidths)
   console.log(`Sheet ${currentSheet.name}: rowHeights`, currentSheet.rowHeights)
@@ -432,6 +459,8 @@ export default function Home() {
       <Header
         onImport={handleImportCSV}
         onExport={exportToCSV}
+        onExportDocument={handleExportDocument}
+        onImportDocument={handleImportDocument}
         maxCols={currentSheet.maxCols}
         setGroupingColumn={setGroupingColumn}
         groupingColumn={currentSheet.groupingColumn}

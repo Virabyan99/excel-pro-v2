@@ -5,6 +5,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
 import { ThemeToggle } from './ThemeToggle'
 import { FormulaBar } from './FormulaBar'
 import { Sheet } from '@/lib/types'
@@ -12,6 +14,8 @@ import { Sheet } from '@/lib/types'
 interface HeaderProps {
   onImport: (e: React.ChangeEvent<HTMLInputElement>) => void
   onExport: () => void
+  onExportDocument: () => void
+  onImportDocument: (text: string) => void
   maxCols: number
   setGroupingColumn: (column: number | null) => void
   groupingColumn: number | null
@@ -30,6 +34,8 @@ interface HeaderProps {
 export function Header({
   onImport,
   onExport,
+  onExportDocument,
+  onImportDocument,
   maxCols,
   setGroupingColumn,
   groupingColumn,
@@ -47,7 +53,17 @@ export function Header({
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterColumnLocal, setFilterColumnLocal] = useState<number | null>(null)
   const [filterValueLocal, setFilterValueLocal] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
+  const [importText, setImportText] = useState('')
+  const [importError, setImportError] = useState<string | null>(null)
   const columns = Array.from({ length: maxCols }, (_, i) => String.fromCharCode(65 + i))
+
+  const handleImportSubmit = (text: string) => {
+    console.log('Import submit called with text:', text)
+    setImportError(null)
+    onImportDocument(text)
+    setImportOpen(false)
+  }
 
   return (
     <div className="fixed top-0 left-0 right-0 z-10 bg-white dark:bg-gray-800 shadow-md p-2 flex items-center">
@@ -181,6 +197,55 @@ export function Header({
                 <p>Export current sheet to CSV</p>
               </TooltipContent>
             </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={onExportDocument} className="flex items-center">
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Document
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Export entire document as JSON</p>
+              </TooltipContent>
+            </Tooltip>
+            <Dialog open={importOpen} onOpenChange={setImportOpen}>
+              <DialogTrigger asChild>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button className="flex items-center">
+                      <Upload className="mr-2 h-4 w-4" />
+                      Import Document
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Import entire document from JSON</p>
+                  </TooltipContent>
+                </Tooltip>
+              </DialogTrigger>
+              <DialogContent>
+                <div className="grid gap-4">
+                  <Input
+                    type="file"
+                    accept="application/json"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        const text = await file.text()
+                        console.log('File selected, text read:', text)
+                        handleImportSubmit(text)
+                      }
+                    }}
+                  />
+                  <Textarea
+                    placeholder="Or paste JSON here"
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                  />
+                  <Button onClick={() => handleImportSubmit(importText)}>Import</Button>
+                  {importError && <div className="text-red-500">{importError}</div>}
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </TooltipProvider>
         <ThemeToggle />
