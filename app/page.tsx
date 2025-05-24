@@ -32,6 +32,24 @@ export default function Home() {
   const HEADER_HEIGHT = 34
   const ROW_HEADER_WIDTH = 126
 
+  // Load document from local storage on mount
+  useEffect(() => {
+    const savedDocument = localStorage.getItem('spreadsheetDocument')
+    if (savedDocument) {
+      try {
+        const parsedDocument = JSON.parse(savedDocument)
+        setDocument(parsedDocument)
+      } catch (error) {
+        console.error('Failed to parse saved document:', error)
+      }
+    }
+  }, [])
+
+  // Save document to local storage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('spreadsheetDocument', JSON.stringify(document))
+  }, [document])
+
   useEffect(() => {
     const handleMouseUp = () => setIsSelecting(false)
     window.document.addEventListener('mouseup', handleMouseUp)
