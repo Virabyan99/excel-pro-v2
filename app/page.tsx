@@ -38,7 +38,13 @@ export default function Home() {
     if (savedDocument) {
       try {
         const parsedDocument = JSON.parse(savedDocument)
-        setDocument(parsedDocument)
+        // Ensure all sheets have columnWidths and rowHeights
+        const fixedSheets = parsedDocument.sheets.map(sheet => ({
+          ...sheet,
+          columnWidths: sheet.columnWidths || Array(sheet.maxCols + 1).fill(126),
+          rowHeights: sheet.rowHeights || Array(sheet.maxRows).fill(34),
+        }))
+        setDocument({ ...parsedDocument, sheets: fixedSheets })
       } catch (error) {
         console.error('Failed to parse saved document:', error)
       }
@@ -194,21 +200,23 @@ export default function Home() {
     })
   }
 
-  const setColumnWidths = (widths: number[]) => {
+  const setColumnWidths = (updater: number[] | ((prev: number[]) => number[])) => {
     setDocument((prev) => {
       const newSheets = [...prev.sheets]
       const currentSheet = { ...newSheets[prev.activeSheetIndex] }
-      currentSheet.columnWidths = widths
+      const newWidths = typeof updater === 'function' ? updater(currentSheet.columnWidths) : updater
+      currentSheet.columnWidths = newWidths
       newSheets[prev.activeSheetIndex] = currentSheet
       return { ...prev, sheets: newSheets }
     })
   }
 
-  const setRowHeights = (heights: number[]) => {
+  const setRowHeights = (updater: number[] | ((prev: number[]) => number[])) => {
     setDocument((prev) => {
       const newSheets = [...prev.sheets]
       const currentSheet = { ...newSheets[prev.activeSheetIndex] }
-      currentSheet.rowHeights = heights
+      const newHeights = typeof updater === 'function' ? updater(currentSheet.rowHeights) : updater
+      currentSheet.rowHeights = newHeights
       newSheets[prev.activeSheetIndex] = currentSheet
       return { ...prev, sheets: newSheets }
     })
