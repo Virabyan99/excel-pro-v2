@@ -1,7 +1,6 @@
-// components/Header.tsx
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Upload, Download } from 'lucide-react'
+import { Upload, Download, Trash2 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -25,6 +24,7 @@ interface HeaderProps {
   activeSheetIndex: number
   switchSheet: (index: number) => void
   addSheet: () => void
+  deleteSheet: (index: number) => void
 }
 
 export function Header({
@@ -42,6 +42,7 @@ export function Header({
   activeSheetIndex,
   switchSheet,
   addSheet,
+  deleteSheet,
 }: HeaderProps) {
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterColumnLocal, setFilterColumnLocal] = useState<number | null>(null)
@@ -69,6 +70,15 @@ export function Header({
         <Button variant="outline" onClick={addSheet} className="px-2 py-1">
           +
         </Button>
+        {sheets.length > 1 && (
+          <Button
+            variant="outline"
+            onClick={() => deleteSheet(activeSheetIndex)}
+            className="px-2 py-1"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
       </div>
       <div className="flex-grow mr-4">
         <FormulaBar

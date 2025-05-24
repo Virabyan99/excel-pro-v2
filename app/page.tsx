@@ -38,12 +38,21 @@ export default function Home() {
     if (savedDocument) {
       try {
         const parsedDocument = JSON.parse(savedDocument)
-        // Ensure all sheets have columnWidths and rowHeights
-        const fixedSheets = parsedDocument.sheets.map(sheet => ({
-          ...sheet,
-          columnWidths: sheet.columnWidths || Array(sheet.maxCols + 1).fill(126),
-          rowHeights: sheet.rowHeights || Array(sheet.maxRows).fill(34),
-        }))
+        const fixedSheets = parsedDocument.sheets.map(sheet => {
+          const maxCols = sheet.maxCols || 14
+          const maxRows = sheet.maxRows || 22
+          let columnWidths = Array.isArray(sheet.columnWidths) ? [...sheet.columnWidths] : Array(maxCols + 1).fill(126)
+          let rowHeights = Array.isArray(sheet.rowHeights) ? [...sheet.rowHeights] : Array(maxRows).fill(34)
+          while (columnWidths.length < maxCols + 1) columnWidths.push(126)
+          while (rowHeights.length < maxRows) rowHeights.push(34)
+          return {
+            ...sheet,
+            maxCols,
+            maxRows,
+            columnWidths,
+            rowHeights,
+          }
+        })
         setDocument({ ...parsedDocument, sheets: fixedSheets })
       } catch (error) {
         console.error('Failed to parse saved document:', error)
@@ -204,7 +213,9 @@ export default function Home() {
     setDocument((prev) => {
       const newSheets = [...prev.sheets]
       const currentSheet = { ...newSheets[prev.activeSheetIndex] }
-      const newWidths = typeof updater === 'function' ? updater(currentSheet.columnWidths) : updater
+      const prevWidths = Array.isArray(currentSheet.columnWidths) ? currentSheet.columnWidths : Array(currentSheet.maxCols + 1).fill(126)
+      const newWidths = typeof updater === 'function' ? updater(prevWidths) : updater
+      console.log(`Sheet ${currentSheet.name}: Updating columnWidths`, prevWidths, 'to', newWidths)
       currentSheet.columnWidths = newWidths
       newSheets[prev.activeSheetIndex] = currentSheet
       return { ...prev, sheets: newSheets }
@@ -215,7 +226,9 @@ export default function Home() {
     setDocument((prev) => {
       const newSheets = [...prev.sheets]
       const currentSheet = { ...newSheets[prev.activeSheetIndex] }
-      const newHeights = typeof updater === 'function' ? updater(currentSheet.rowHeights) : updater
+      const prevHeights = Array.isArray(currentSheet.rowHeights) ? currentSheet.rowHeights : Array(currentSheet.maxRows).fill(34)
+      const newHeights = typeof updater === 'function' ? updater(prevHeights) : updater
+      console.log(`Sheet ${currentSheet.name}: Updating rowHeights`, prevHeights, 'to', newHeights)
       currentSheet.rowHeights = newHeights
       newSheets[prev.activeSheetIndex] = currentSheet
       return { ...prev, sheets: newSheets }
@@ -388,6 +401,32 @@ export default function Home() {
     overscan: 5,
   })
 
+  // Ensure virtualizers remeasure when sizes change
+  useEffect(() => {
+    columnVirtualizer.measure()
+  }, [currentSheet.columnWidths])
+
+  useEffect(() => {
+    rowVirtualizer.measure()
+  }, [currentSheet.rowHeights])
+
+  const deleteSheet = (index: number) => {
+    if (document.sheets.length <= 1) return; // Prevent deleting the last sheet
+    setDocument((prev) => {
+      const newSheets = prev.sheets.filter((_, i) => i !== index);
+      const newActiveIndex = index >= newSheets.length ? newSheets.length - 1 : index;
+      return {
+        ...prev,
+        sheets: newSheets,
+        activeSheetIndex: newActiveIndex,
+      };
+    });
+  };
+
+  // Log current sheet sizes for debugging
+  console.log(`Sheet ${currentSheet.name}: columnWidths`, currentSheet.columnWidths)
+  console.log(`Sheet ${currentSheet.name}: rowHeights`, currentSheet.rowHeights)
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden">
       <Header
@@ -405,6 +444,7 @@ export default function Home() {
         activeSheetIndex={document.activeSheetIndex}
         switchSheet={switchSheet}
         addSheet={addSheet}
+        deleteSheet={deleteSheet}
       />
       <div className="flex-1 relative mt-13 overflow-hidden">
         {currentSheet.selectionStart && currentSheet.selectionEnd && (
